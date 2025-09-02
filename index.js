@@ -1,48 +1,216 @@
 import * as THREE from "three";
-import { OrbitControls } from "jsm/controls/OrbitControls.js"
+import { OrbitControls } from "jsm/controls/OrbitControls.js";
 
-
-const w = window.innerWidth;
-const h = window.innerHeight;
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(w, h);
-document.body.appendChild(renderer.domElement);
-
-const fov = 75;
-const aspect = w / h;
-const near = 0.1;
-const far = 10;
-const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-camera.position.z = 2;
-
+//scene
 const scene = new THREE.Scene();
 
+//textureLoader
+const textureLoader = new THREE.TextureLoader();
+const cubeTextureLoader = new THREE.CubeTextureLoader();
+cubeTextureLoader.setPath("/textures/cubeMap/");
+
+//textures
+const sunTexture = textureLoader.load("/textures/2k_sun.jpg");
+sunTexture.colorSpace = THREE.SRGBColorSpace;
+
+const mercuryTexture = textureLoader.load("/textures/2k_mercury.jpg");
+mercuryTexture.colorSpace = THREE.SRGBColorSpace;
+
+const venusTexture = textureLoader.load("/textures/2k_venus_surface.jpg");
+venusTexture.colorSpace = THREE.SRGBColorSpace;
+
+const earthTexture = textureLoader.load("/textures/2k_earth_daymap.jpg");
+earthTexture.colorSpace = THREE.SRGBColorSpace;
+
+const marsTexture = textureLoader.load("/textures/2k_mars.jpg");
+marsTexture.colorSpace = THREE.SRGBColorSpace;
+
+const moonTexture = textureLoader.load("/textures/2k_moon.jpg");
+moonTexture.colorSpace = THREE.SRGBColorSpace;
+
+const backgroundCubemp = cubeTextureLoader.load([
+  "px.png",
+  "nx.png",
+  "py.png",
+  "ny.png",
+  "pz.png",
+  "nz.png",
+]);
+
+scene.background = backgroundCubemp;
+
+//materials
+const mercuryMaterial = new THREE.MeshStandardMaterial({
+  map: mercuryTexture,
+});
+const venusMaterial = new THREE.MeshStandardMaterial({
+  map: venusTexture,
+});
+const earthMaterial = new THREE.MeshStandardMaterial({
+  map: earthTexture,
+});
+const marsMaterial = new THREE.MeshStandardMaterial({
+  map: marsTexture,
+});
+const moonMaterial = new THREE.MeshStandardMaterial({
+  map: moonTexture,
+});
+
+// sun
+const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+const sunMaterial = new THREE.MeshBasicMaterial({
+  map: sunTexture,
+});
+
+const sun = new THREE.Mesh(sphereGeometry, sunMaterial);
+sun.scale.setScalar(5);
+scene.add(sun);
+
+// planets
+const planets = [
+  {
+    name: "Mercury",
+    radius: 0.5,
+    distance: 10,
+    speed: 0.01,
+    material: mercuryMaterial,
+    moons: [],
+  },
+  {
+    name: "Venus",
+    radius: 0.8,
+    distance: 15,
+    speed: 0.007,
+    material: venusMaterial,
+    moons: [],
+  },
+  {
+    name: "Earth",
+    radius: 1,
+    distance: 20,
+    speed: 0.005,
+    material: earthMaterial,
+    moons: [
+      {
+        name: "Moon",
+        radius: 0.3,
+        distance: 3,
+        speed: 0.015,
+      },
+    ],
+  },
+  {
+    name: "Mars",
+    radius: 0.7,
+    distance: 25,
+    speed: 0.003,
+    material: marsMaterial,
+    moons: [
+      {
+        name: "Phobos",
+        radius: 0.1,
+        distance: 2,
+        speed: 0.02,
+      },
+      {
+        name: "Deimos",
+        radius: 0.2,
+        distance: 3,
+        speed: 0.015,
+        color: 0xffffff,
+      },
+    ],
+  },
+];
+
+const createPlanet = (planet) => {
+  const planetMesh = new THREE.Mesh(sphereGeometry, planet.material);
+  planetMesh.scale.setScalar(planet.radius);
+  planetMesh.position.x = planet.distance;
+  return planetMesh;
+};
+
+const createMoon = (moon) => {
+  const moonMesh = new THREE.Mesh(sphereGeometry, moonMaterial);
+  moonMesh.scale.setScalar(moon.radius);
+  moonMesh.position.x = moon.distance;
+  return moonMesh;
+};
+
+const planetMeshes = planets.map((planet) => {
+  const planetMesh = createPlanet(planet);
+  scene.add(planetMesh);
+
+  planet.moons.forEach((moon) => {
+    const moonMesh = createMoon(moon);
+    planetMesh.add(moonMesh);
+  });
+
+  return planetMesh;
+});
+
+//light
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.05);
+scene.add(ambientLight);
+
+const pointLight = new THREE.PointLight(0xffffff, 500);
+scene.add(pointLight);
+
+//camera
+const camera = new THREE.PerspectiveCamera(
+  35,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  400
+);
+camera.position.z = 100;
+camera.position.y = 5;
+
+//renderer (bez querySelector)
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+//controls
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.dampingFactor = 0.03;
+controls.maxDistance = 200;
+controls.minDistance = 20;
 
-const geo = new THREE.IcosahedronGeometry(1.0, 2);
-const mat = new THREE.MeshStandardMaterial({
-    color: '#ffffffff',
-    flatShading: true
+//resize listener
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
-const mesh = new THREE.Mesh(geo, mat);
-scene.add(mesh)
 
-const vireMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    wireframe: true
-});
-const wireMesh = new THREE.Mesh(geo, vireMat);
-wireMesh.scale.setScalar(1.001)
-mesh.add(wireMesh)
+//clock
+const clock = new THREE.Clock();
 
-const hemilight = new THREE.HemisphereLight("rgba(228, 134, 189, 1)", "rgba(75, 2, 170, 1)");
-scene.add(hemilight)
-function animate(t = 0) {
-    requestAnimationFrame(animate);
-    //mesh.rotation.y = t * 0.0001;
-    renderer.render(scene, camera);
-    controls.update();
-}
-animate();
+//render loop
+const renderloop = () => {
+  planetMeshes.forEach((planet, planetindex) => {
+    planet.rotation.y += planets[planetindex].speed;
+    planet.position.x =
+      Math.sin(planet.rotation.y) * planets[planetindex].distance;
+    planet.position.z =
+      Math.cos(planet.rotation.y) * planets[planetindex].distance;
+
+    planet.children.forEach((moon, moonIndex) => {
+      moon.rotation.y += planets[planetindex].moons[moonIndex].speed;
+      moon.position.x =
+        Math.sin(moon.rotation.y) *
+        planets[planetindex].moons[moonIndex].distance;
+      moon.position.z =
+        Math.cos(moon.rotation.y) *
+        planets[planetindex].moons[moonIndex].distance;
+    });
+  });
+
+  controls.update();
+  renderer.render(scene, camera);
+  window.requestAnimationFrame(renderloop);
+};
+
+renderloop();
